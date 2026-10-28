@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SENTINEL // Multi-Stage Attack Correlation & SOAR Engine</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    :root {
+      --bg: #FFFFFF;
+      --surface: #F8F9FA;
+      --border: #E4E4E7;
+      --text: #09090B;
+    }
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      overflow-x: hidden;
+    }
+    .mono {
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .grid-bg {
+      background-size: 32px 32px;
+      background-image: 
+        linear-gradient(to right, rgba(9, 9, 11, 0.04) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(9, 9, 11, 0.04) 1px, transparent 1px);
+    }
+    .reveal {
+      opacity: 0;
+      transform: translateY(18px);
+      transition: all 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .reveal.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    .stage-node {
+      transition: all 0.35s ease;
+    }
+    .stage-node.active-low { border-color: #09090B; background-color: #F4F4F5; }
+    .stage-node.active-elevated { border-color: #D97706; background-color: #FFFBEB; }
+    .stage-node.active-critical { border-color: #DC2626; background-color: #FEF2F2; }
+  </style>
+</head>
+<body class="antialiased selection:bg-black selection:text-white">
+
+  <div id="notification-stack" class="fixed top-20 right-6 z-50 flex flex-col gap-3 w-96 pointer-events-none"></div>
+
+  <header class="sticky top-0 z-40 bg-white/90 backdrop-blur-md border-b border-zinc-200">
+    <div class="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-3 h-3 bg-black"></div>
+        <span class="font-bold tracking-tight text-sm uppercase">Sentinel // APT Correlation &amp; SOAR</span>
+        <span id="stream-badge" class="mono text-[11px] px-2 py-0.5 border border-zinc-300 text-zinc-600 uppercase">Connecting...</span>
+      </div>
+      <div class="flex items-center gap-3">
+        <button onclick="enableBrowserNotifications()" id="notif-btn" class="mono text-xs px-3 py-1.5 border border-zinc-300 hover:border-black transition">
+          ENABLE OS ALERTS
+        </button>
+        <button onclick="triggerDemoAttack()" class="mono text-xs px-3.5 py-1.5 bg-black text-white hover:bg-zinc-800 transition">
+          SIMULATE APT SEQUENCE
+        </button>
+        <button onclick="resetEngine()" class="mono text-xs px-3 py-1.5 border border-zinc-300 hover:border-black transition">
+          RESET
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <section class="grid-bg border-b border-zinc-200 py-16">
+    <div class="max-w-7xl mx-auto px-6">
+      <div class="max-w-3xl mb-12">
+        <div class="mono text-xs uppercase tracking-widest text-zinc-500 mb-3">
+          AI ANOMALY SCORING &amp; AUTOMATED MITIGATION PLAYBOOKS
+        </div>
+        <h1 class="text-4xl md:text-5xl font-bold tracking-tight leading-[1.12] text-zinc-950 mb-5">
+          Detection meets automated defense.<br/>When risk spikes, SOAR takes action.
+        </h1>
+        <p class="text-zinc-600 text-base leading-relaxed">
+          Engine tracks multi-stage progressions in real-time. Once the correlated risk threshold exceeds 90.0, automated playbooks instantly execute firewall drops, SG revocations, and session terminations.
+        </p>
+      </div>
+
+      <div class="bg-white border border-zinc-200 p-6 mb-8 shadow-sm">
+        <div class="flex flex-wrap items-center justify-between gap-4 pb-6 mb-6 border-b border-zinc-200">
+          <div>
+            <span class="mono text-xs uppercase text-zinc-500 block">TRACKED THREAT ACTOR IP</span>
+            <span id="active-ip" class="mono text-xl font-semibold text-zinc-950">WAITING FOR STREAM...</span>
+          </div>
+          <div class="flex items-center gap-8">
+            <div>
+              <span class="mono text-xs uppercase text-zinc-500 block">EVENTS IN WINDOW (300S)</span>
+              <span id="window-count" class="mono text-xl font-semibold">0</span>
+            </div>
+            <div>
+              <span class="mono text-xs uppercase text-zinc-500 block">CORRELATED RISK SCORE</span>
+              <span id="risk-score" class="mono text-2xl font-bold text-zinc-950">0.0 / 100</span>
+            </div>
+            <div>
+              <span class="mono text-xs uppercase text-zinc-500 block">STATE SEVERITY</span>
+              <span id="severity-pill" class="mono text-xs font-semibold px-2.5 py-1 border border-zinc-300 uppercase inline-block mt-0.5">IDLE</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div id="stage-1" class="stage-node border border-zinc-200 p-4">
+            <div class="flex justify-between items-center mb-2">
+              <span class="mono text-xs text-zinc-400">STAGE 01</span>
+              <span id="stage-1-status" class="mono text-[11px] uppercase text-zinc-400">INACTIVE</span>
+            </div>
+            <div class="font-semibold text-sm mb-1">Initial Access &amp; Recon</div>
+            <p class="text-xs text-zinc-500">Auth failures, brute force probes, port scanning.</p>
+          </div>
+
+          <div id="stage-2" class="stage-node border border-zinc-200 p-4">
+            <div class="flex justify-between items-center mb-2">
+              <span class="mono text-xs text-zinc-400">STAGE 02</span>
+              <span id="stage-2-status" class="mono text-[11px] uppercase text-zinc-400">INACTIVE</span>
+            </div>
+            <div class="font-semibold text-sm mb-1">Privilege Escalation</div>
+            <p class="text-xs text-zinc-500">Sudo bypass, IAM role elevation, token forging.</p>
+          </div>
+
+          <div id="stage-3" class="stage-node border border-zinc-200 p-4">
+            <div class="flex justify-between items-center mb-2">
+              <span class="mono text-xs text-zinc-400">STAGE 03</span>
+              <span id="stage-3-status" class="mono text-[11px] uppercase text-zinc-400">INACTIVE</span>
+            </div>
+            <div class="font-semibold text-sm mb-1">Lateral Movement</div>
+            <p class="text-xs text-zinc-500">Internal subnet pivoting, unauthorized service calls.</p>
+          </div>
+
+          <div id="stage-4" class="stage-node border border-zinc-200 p-4">
+            <div class="flex justify-between items-center mb-2">
+              <span class="mono text-xs text-zinc-400">STAGE 04</span>
+              <span id="stage-4-status" class="mono text-[11px] uppercase text-zinc-400">INACTIVE</span>
+            </div>
+            <div class="font-semibold text-sm mb-1">Data Exfiltration</div>
+            <p class="text-xs text-zinc-500">Bulk database dump, anomalous outbound transfer.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <div class="lg:col-span-7 bg-white border border-zinc-200">
+          <div class="px-5 py-3.5 border-b border-zinc-200 flex justify-between items-center bg-zinc-50">
+            <span class="mono text-xs font-semibold uppercase">LIVE TELEMETRY INGESTION (/API/V1/INGEST)</span>
+            <span class="mono text-[11px] text-zinc-500">ISOLATION FOREST SCORING</span>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+              <thead>
+                <tr class="border-b border-zinc-200 mono text-[11px] text-zinc-500 uppercase">
+                  <th class="py-2.5 px-4">TIME</th>
+                  <th class="py-2.5 px-4">SOURCE IP</th>
+                  <th class="py-2.5 px-4">EVENT TYPE</th>
+                  <th class="py-2.5 px-4">ENDPOINT</th>
+                  <th class="py-2.5 px-4 text-right">AI ANOMALY</th>
+                </tr>
+              </thead>
+              <tbody id="telemetry-tbody" class="mono text-xs divide-y divide-zinc-200">
+                <tr>
+                  <td colspan="5" class="py-8 text-center text-zinc-400">No telemetry ingested yet. Click "SIMULATE APT SEQUENCE".</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="lg:col-span-5 bg-white border border-zinc-200">
+          <div class="px-5 py-3.5 border-b border-zinc-200 flex justify-between items-center bg-zinc-50">
+            <span class="mono text-xs font-semibold uppercase">CORRELATED ALERTS &amp; SOAR PLAYBOOKS</span>
+            <span class="mono text-[11px] text-zinc-500">AUTOMATED MITIGATION</span>
+          </div>
+          <div id="alert-feed" class="p-4 space-y-3 max-h-[380px] overflow-y-auto">
+            <div class="mono text-xs text-zinc-400 py-8 text-center">
+              Waiting for multi-stage correlation triggers...
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <script>
+    let firstEventReceived = false;
+    let firstAlertReceived = false;
+
+    function playAlertTone(critical = false) {
+      try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(critical ? 880 : 520, ctx.currentTime);
+        gain.gain.setValueAtTime(0.08, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.35);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.35);
+      } catch (e) {}
+    }
+
+    function enableBrowserNotifications() {
+      if (!("Notification" in window)) return;
+      Notification.requestPermission().then(permission => {
+        const btn = document.getElementById("notif-btn");
+        if (permission === "granted") {
+          btn.textContent = "OS ALERTS ENABLED";
+          btn.classList.add("bg-zinc-900", "text-white");
+        }
+      });
+    }
+
+    function pushNotificationToast(corr) {
+      playAlertTone(corr.severity === "CRITICAL");
+      if ("Notification" in window && Notification.permission === "granted") {
+        new Notification(corr.alert_title, { body: corr.alert_msg });
+      }
+
+      const stack = document.getElementById("notification-stack");
+      const toast = document.createElement("div");
+      const borderClass = corr.severity === "CRITICAL" ? "border-red-600 bg-red-50" : "border-amber-600 bg-amber-50";
+      
+      toast.className = `pointer-events-auto border-l-4 border border-zinc-200 ${borderClass} p-4 shadow-md transition-all duration-300`;
+      toast.innerHTML = `
+        <div class="flex justify-between items-center mb-1">
+          <span class="mono text-[11px] font-bold uppercase">${corr.severity} ALERT // RISK ${corr.risk_score}</span>
+          <button onclick="this.parentElement.parentElement.remove()" class="mono text-xs text-zinc-500 hover:text-black">CLOSE</button>
+        </div>
+        <div class="font-semibold text-xs text-zinc-900 mb-1">${corr.alert_title}</div>
+        <div class="text-xs text-zinc-600">${corr.alert_msg}</div>
+      `;
+      stack.prepend(toast);
+      setTimeout(() => { if (toast.parentElement) toast.remove(); }, 7000);
+    }
+
+    function updateStageBoxes(activeStages, severity) {
+      for (let i = 1; i <= 4; i++) {
+        const box = document.getElementById(`stage-${i}`);
+        const status = document.getElementById(`stage-${i}-status`);
+        box.classList.remove("active-low", "active-elevated", "active-critical");
+        
+        if (activeStages.includes(i)) {
+          status.textContent = "TRIGGERED";
+          status.className = "mono text-[11px] uppercase font-bold text-zinc-900";
+          if (severity === "CRITICAL") box.classList.add("active-critical");
+          else if (severity === "ELEVATED") box.classList.add("active-elevated");
+          else box.classList.add("active-low");
+        } else {
+          status.textContent = "INACTIVE";
+          status.className = "mono text-[11px] uppercase text-zinc-400";
+        }
+      }
+    }
+
+    function renderIncomingData(data) {
+      if (data.type === "RESET") {
+        document.getElementById("active-ip").textContent = "WAITING FOR STREAM...";
+        document.getElementById("window-count").textContent = "0";
+        document.getElementById("risk-score").textContent = "0.0 / 100";
+        document.getElementById("severity-pill").textContent = "IDLE";
+        document.getElementById("severity-pill").className = "mono text-xs font-semibold px-2.5 py-1 border border-zinc-300 uppercase inline-block mt-0.5";
+        updateStageBoxes([], "LOW");
+        return;
+      }
+
+      const { event, correlation } = data;
+      document.getElementById("active-ip").textContent = correlation.source_ip;
+      document.getElementById("window-count").textContent = correlation.event_count_in_window;
+      document.getElementById("risk-score").textContent = `${correlation.risk_score} / 100`;
+
+      const pill = document.getElementById("severity-pill");
+      pill.textContent = correlation.severity;
+      if (correlation.severity === "CRITICAL") {
+        pill.className = "mono text-xs font-semibold px-2.5 py-1 border border-red-600 bg-red-600 text-white uppercase inline-block mt-0.5";
+      } else if (correlation.severity === "ELEVATED") {
+        pill.className = "mono text-xs font-semibold px-2.5 py-1 border border-amber-600 bg-amber-500 text-white uppercase inline-block mt-0.5";
+      } else {
+        pill.className = "mono text-xs font-semibold px-2.5 py-1 border border-zinc-900 bg-zinc-100 text-zinc-900 uppercase inline-block mt-0.5";
+      }
+
+      updateStageBoxes(correlation.active_stages, correlation.severity);
+
+      const tbody = document.getElementById("telemetry-tbody");
+      if (!firstEventReceived) { tbody.innerHTML = ""; firstEventReceived = true; }
+      const tr = document.createElement("tr");
+      tr.className = "hover:bg-zinc-50 transition";
+      tr.innerHTML = `
+        <td class="py-2.5 px-4 text-zinc-500">${event.time_str}</td>
+        <td class="py-2.5 px-4 font-medium">${event.source_ip}</td>
+        <td class="py-2.5 px-4"><span class="px-2 py-0.5 border border-zinc-300 text-[11px]">S0${event.stage} // ${event.event_type}</span></td>
+        <td class="py-2.5 px-4 text-zinc-600">${event.endpoint}</td>
+        <td class="py-2.5 px-4 text-right font-semibold">${event.ai_anomaly_score}</td>
+      `;
+      tbody.prepend(tr);
+
+      if (correlation.notify) {
+        pushNotificationToast(correlation);
+        const feed = document.getElementById("alert-feed");
+        if (!firstAlertReceived) { feed.innerHTML = ""; firstAlertReceived = true; }
+        
+        const card = document.createElement("div");
+        const borderCol = correlation.severity === "CRITICAL" ? "border-red-600" : "border-amber-600";
+        card.className = `border-l-4 border border-zinc-200 ${borderCol} p-3.5 bg-zinc-50`;
+
+        let playbookHtml = '';
+        if (correlation.playbook && correlation.playbook.triggered) {
+          const pb = correlation.playbook;
+          let actionsList = pb.actions.map(a => `<li class="text-[11px] text-zinc-700 font-mono">• [${a.status}] ${a.target}</li>`).join('');
+          playbookHtml = `
+            <div class="mt-2.5 pt-2.5 border-t border-zinc-200 bg-white p-2.5">
+              <div class="mono text-[10px] font-bold uppercase text-red-600 mb-1">SOAR PLAYBOOK EXECUTED [${pb.playbook_id}]</div>
+              <ul class="space-y-1">${actionsList}</ul>
+            </div>
+          `;
+        }
+
+        card.innerHTML = `
+          <div class="flex justify-between items-center mono text-[11px] text-zinc-500 mb-1">
+            <span>${event.time_str} // STAGES: [${correlation.active_stages.join(", ")}]</span>
+            <span class="font-bold text-zinc-900">RISK ${correlation.risk_score}</span>
+          </div>
+          <div class="font-semibold text-xs text-zinc-950 mb-1">${correlation.alert_title}</div>
+          <div class="text-xs text-zinc-600 mb-1">${correlation.alert_msg}</div>
+          ${playbookHtml}
+        `;
+        feed.prepend(card);
+      }
+    }
+
+    function connectStream() {
+      const badge = document.getElementById("stream-badge");
+      const evtSource = new EventSource("/api/v1/stream");
+
+      evtSource.onopen = () => {
+        badge.textContent = "STREAM ONLINE";
+        badge.className = "mono text-[11px] px-2 py-0.5 border border-zinc-900 bg-zinc-900 text-white uppercase";
+      };
+
+      evtSource.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        renderIncomingData(data);
+      };
+
+      evtSource.onerror = () => {
+        badge.textContent = "RECONNECTING...";
+        badge.className = "mono text-[11px] px-2 py-0.5 border border-red-500 text-red-600 uppercase";
+      };
+    }
+
+    async function triggerDemoAttack() {
+      const sequence = [
+        { source_ip: "185.220.101.44", user: "admin", endpoint: "/api/v1/auth/login", event_type: "AUTH_FAILURE", payload_bytes: 512, req_rate: 38.0, sensitivity: 4, status_code: 401 },
+        { source_ip: "185.220.101.44", user: "admin", endpoint: "/api/v1/iam/role-elevate", event_type: "PRIV_ESC", payload_bytes: 1840, req_rate: 45.0, sensitivity: 8, status_code: 200 },
+        { source_ip: "185.220.101.44", user: "root_service", endpoint: "/internal/k8s/secrets", event_type: "INTERNAL_PIVOT", payload_bytes: 6400, req_rate: 62.0, sensitivity: 9, status_code: 200 },
+        { source_ip: "185.220.101.44", user: "root_service", endpoint: "/db/export/customers.sql", event_type: "DB_DUMP", payload_bytes: 950000, req_rate: 85.0, sensitivity: 10, status_code: 200 }
+      ];
+
+      for (const step of sequence) {
+        await fetch("/api/v1/ingest", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(step)
+        });
+        await new Promise(r => setTimeout(r, 1100));
+      }
+    }
+
+    async function resetEngine() {
+      await fetch("/api/v1/reset", { method: "POST" });
+    }
+
+    connectStream();
+  </script>
+</body>
+</html>
