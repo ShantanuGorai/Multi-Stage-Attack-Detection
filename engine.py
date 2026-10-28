@@ -1,6 +1,5 @@
 import time
 import math
-import subprocess
 import numpy as np
 from collections import defaultdict
 from sklearn.ensemble import IsolationForest
@@ -10,15 +9,16 @@ class MultiStageCorrelationEngine:
         self.time_window = time_window_seconds
         self.ip_history = defaultdict(list)
         
+        # MITRE ATT&CK Framework Integration
         self.stage_map = {
-            "AUTH_FAILURE": {"stage": 1, "name": "Initial Access", "weight": 15.0},
-            "PORT_SCAN": {"stage": 1, "name": "Reconnaissance", "weight": 18.0},
-            "PRIV_ESC": {"stage": 2, "name": "Privilege Escalation", "weight": 30.0},
-            "TOKEN_FORGE": {"stage": 2, "name": "Credential Access", "weight": 32.0},
-            "INTERNAL_PIVOT": {"stage": 3, "name": "Lateral Movement", "weight": 45.0},
-            "CRON_PERSIST": {"stage": 3, "name": "Persistence", "weight": 40.0},
-            "DB_DUMP": {"stage": 4, "name": "Data Exfiltration", "weight": 65.0},
-            "NORMAL_TRAFFIC": {"stage": 0, "name": "Benign Activity", "weight": 2.0}
+            "AUTH_FAILURE": {"stage": 1, "name": "Initial Access", "weight": 15.0, "mitre_id": "T1078", "tactic": "Initial Access"},
+            "PORT_SCAN": {"stage": 1, "name": "Reconnaissance", "weight": 18.0, "mitre_id": "T1046", "tactic": "Reconnaissance"},
+            "PRIV_ESC": {"stage": 2, "name": "Privilege Escalation", "weight": 30.0, "mitre_id": "T1548", "tactic": "Privilege Escalation"},
+            "TOKEN_FORGE": {"stage": 2, "name": "Credential Access", "weight": 32.0, "mitre_id": "T1550", "tactic": "Credential Access"},
+            "INTERNAL_PIVOT": {"stage": 3, "name": "Lateral Movement", "weight": 45.0, "mitre_id": "T1021", "tactic": "Lateral Movement"},
+            "CRON_PERSIST": {"stage": 3, "name": "Persistence", "weight": 40.0, "mitre_id": "T1053", "tactic": "Persistence"},
+            "DB_DUMP": {"stage": 4, "name": "Data Exfiltration", "weight": 65.0, "mitre_id": "T1567", "tactic": "Exfiltration"},
+            "NORMAL_TRAFFIC": {"stage": 0, "name": "Benign Activity", "weight": 2.0, "mitre_id": "N/A", "tactic": "Normal"}
         }
 
         self.ai_model = IsolationForest(contamination=0.15, random_state=42)
@@ -42,30 +42,20 @@ class MultiStageCorrelationEngine:
         return round(float(anomaly_prob), 3)
 
     def execute_soar_playbook(self, ip: str, risk_score: float, stages: list) -> dict:
-        """
-        Executes automated mitigation when risk score > 90.
-        Simulates iptables block, AWS Security Group revocation, and session invalidation.
-        """
-        playbook_id = f"PB-AUTO-{int(time.time()) % 100000}"
+        playbook_id = f"PB-MITRE-{int(time.time()) % 100000}"
         actions_log = []
 
         if risk_score >= 90.0:
-            # 1. Simulate iptables block rule execution
-            # (In production: subprocess.run(["iptables", "-A", "INPUT", "-s", ip, "-j", "DROP"]))
             actions_log.append({
                 "action": "BLOCK_IP_IPTABLES",
                 "target": f"iptables -A INPUT -s {ip} -j DROP",
                 "status": "EXECUTED_SUCCESS"
             })
-
-            # 2. Simulate AWS Security Group Revocation
             actions_log.append({
                 "action": "REVOKE_AWS_SG_INGRESS",
                 "target": f"aws ec2 revoke-security-group-ingress --group-id sg-0192834 --protocol tcp --port 443 --cidr {ip}/32",
                 "status": "EXECUTED_SUCCESS"
             })
-
-            # 3. Invalidate active user sessions in Redis / Memory cache
             actions_log.append({
                 "action": "INVALIDATE_ACTIVE_SESSIONS",
                 "target": f"REDIS FLUSH_SESSION_KEYS_FOR_IP_{ip}",
@@ -89,6 +79,8 @@ class MultiStageCorrelationEngine:
         stage_num = meta["stage"]
         stage_name = meta["name"]
         base_weight = meta["weight"]
+        mitre_id = meta["mitre_id"]
+        tactic = meta["tactic"]
 
         ai_score = self.compute_ai_anomaly_score(
             payload_bytes=event.get("payload_bytes", 300),
@@ -111,6 +103,8 @@ class MultiStageCorrelationEngine:
             "event_type": event_type,
             "stage": stage_num,
             "stage_name": stage_name,
+            "mitre_id": mitre_id,
+            "tactic": tactic,
             "ai_anomaly_score": ai_score,
             "base_weight": base_weight,
             "payload_bytes": event.get("payload_bytes", 300)
@@ -135,7 +129,6 @@ class MultiStageCorrelationEngine:
         raw_total_risk = decayed_sum * progression_multiplier
         final_risk_score = round(min(99.8, raw_total_risk), 1)
 
-        # Generate automated SOAR playbook if risk score exceeds 90
         playbook = self.execute_soar_playbook(ip, final_risk_score, observed_stages)
 
         if final_risk_score >= 85.0 or num_stages >= 3:

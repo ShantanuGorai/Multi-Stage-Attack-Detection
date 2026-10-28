@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>SENTINEL // Multi-Stage Attack Correlation & SOAR Engine</title>
+  <title>SENTINEL // MITRE ATT&CK & Multi-Stage Correlation Engine</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -30,15 +30,6 @@
         linear-gradient(to right, rgba(9, 9, 11, 0.04) 1px, transparent 1px),
         linear-gradient(to bottom, rgba(9, 9, 11, 0.04) 1px, transparent 1px);
     }
-    .reveal {
-      opacity: 0;
-      transform: translateY(18px);
-      transition: all 0.6s cubic-bezier(0.16, 1, 0.3, 1);
-    }
-    .reveal.visible {
-      opacity: 1;
-      transform: translateY(0);
-    }
     .stage-node {
       transition: all 0.35s ease;
     }
@@ -55,7 +46,7 @@
     <div class="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
       <div class="flex items-center gap-3">
         <div class="w-3 h-3 bg-black"></div>
-        <span class="font-bold tracking-tight text-sm uppercase">Sentinel // APT Correlation &amp; SOAR</span>
+        <span class="font-bold tracking-tight text-sm uppercase">Sentinel // MITRE ATT&CK &amp; SOAR</span>
         <span id="stream-badge" class="mono text-[11px] px-2 py-0.5 border border-zinc-300 text-zinc-600 uppercase">Connecting...</span>
       </div>
       <div class="flex items-center gap-3">
@@ -76,13 +67,13 @@
     <div class="max-w-7xl mx-auto px-6">
       <div class="max-w-3xl mb-12">
         <div class="mono text-xs uppercase tracking-widest text-zinc-500 mb-3">
-          AI ANOMALY SCORING &amp; AUTOMATED MITIGATION PLAYBOOKS
+          MITRE ATT&CK FRAMEWORK // STATEFUL AI CORRELATION
         </div>
         <h1 class="text-4xl md:text-5xl font-bold tracking-tight leading-[1.12] text-zinc-950 mb-5">
-          Detection meets automated defense.<br/>When risk spikes, SOAR takes action.
+          Mapping telemetry to standard adversary tactics.
         </h1>
         <p class="text-zinc-600 text-base leading-relaxed">
-          Engine tracks multi-stage progressions in real-time. Once the correlated risk threshold exceeds 90.0, automated playbooks instantly execute firewall drops, SG revocations, and session terminations.
+          Every ingested log is correlated with official MITRE ATT&CK technique identifiers (T1078, T1548, T1021, T1567) to trace multi-stage enterprise threat progressions.
         </p>
       </div>
 
@@ -111,7 +102,7 @@
         <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div id="stage-1" class="stage-node border border-zinc-200 p-4">
             <div class="flex justify-between items-center mb-2">
-              <span class="mono text-xs text-zinc-400">STAGE 01</span>
+              <span class="mono text-xs text-zinc-400">STAGE 01 // T1078 / T1046</span>
               <span id="stage-1-status" class="mono text-[11px] uppercase text-zinc-400">INACTIVE</span>
             </div>
             <div class="font-semibold text-sm mb-1">Initial Access &amp; Recon</div>
@@ -120,7 +111,7 @@
 
           <div id="stage-2" class="stage-node border border-zinc-200 p-4">
             <div class="flex justify-between items-center mb-2">
-              <span class="mono text-xs text-zinc-400">STAGE 02</span>
+              <span class="mono text-xs text-zinc-400">STAGE 02 // T1548 / T1550</span>
               <span id="stage-2-status" class="mono text-[11px] uppercase text-zinc-400">INACTIVE</span>
             </div>
             <div class="font-semibold text-sm mb-1">Privilege Escalation</div>
@@ -129,7 +120,7 @@
 
           <div id="stage-3" class="stage-node border border-zinc-200 p-4">
             <div class="flex justify-between items-center mb-2">
-              <span class="mono text-xs text-zinc-400">STAGE 03</span>
+              <span class="mono text-xs text-zinc-400">STAGE 03 // T1021 / T1053</span>
               <span id="stage-3-status" class="mono text-[11px] uppercase text-zinc-400">INACTIVE</span>
             </div>
             <div class="font-semibold text-sm mb-1">Lateral Movement</div>
@@ -138,7 +129,7 @@
 
           <div id="stage-4" class="stage-node border border-zinc-200 p-4">
             <div class="flex justify-between items-center mb-2">
-              <span class="mono text-xs text-zinc-400">STAGE 04</span>
+              <span class="mono text-xs text-zinc-400">STAGE 04 // T1567</span>
               <span id="stage-4-status" class="mono text-[11px] uppercase text-zinc-400">INACTIVE</span>
             </div>
             <div class="font-semibold text-sm mb-1">Data Exfiltration</div>
@@ -150,8 +141,8 @@
       <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
         <div class="lg:col-span-7 bg-white border border-zinc-200">
           <div class="px-5 py-3.5 border-b border-zinc-200 flex justify-between items-center bg-zinc-50">
-            <span class="mono text-xs font-semibold uppercase">LIVE TELEMETRY INGESTION (/API/V1/INGEST)</span>
-            <span class="mono text-[11px] text-zinc-500">ISOLATION FOREST SCORING</span>
+            <span class="mono text-xs font-semibold uppercase">LIVE TELEMETRY INGESTION STREAM</span>
+            <span class="mono text-[11px] text-zinc-500">MITRE MAPPED</span>
           </div>
           <div class="overflow-x-auto">
             <table class="w-full text-left border-collapse">
@@ -159,8 +150,8 @@
                 <tr class="border-b border-zinc-200 mono text-[11px] text-zinc-500 uppercase">
                   <th class="py-2.5 px-4">TIME</th>
                   <th class="py-2.5 px-4">SOURCE IP</th>
-                  <th class="py-2.5 px-4">EVENT TYPE</th>
-                  <th class="py-2.5 px-4">ENDPOINT</th>
+                  <th class="py-2.5 px-4">MITRE TECHNIQUE</th>
+                  <th class="py-2.5 px-4">TACTIC</th>
                   <th class="py-2.5 px-4 text-right">AI ANOMALY</th>
                 </tr>
               </thead>
@@ -296,8 +287,8 @@
       tr.innerHTML = `
         <td class="py-2.5 px-4 text-zinc-500">${event.time_str}</td>
         <td class="py-2.5 px-4 font-medium">${event.source_ip}</td>
-        <td class="py-2.5 px-4"><span class="px-2 py-0.5 border border-zinc-300 text-[11px]">S0${event.stage} // ${event.event_type}</span></td>
-        <td class="py-2.5 px-4 text-zinc-600">${event.endpoint}</td>
+        <td class="py-2.5 px-4"><span class="px-2 py-0.5 border border-zinc-300 text-[11px] font-bold">${event.mitre_id}</span></td>
+        <td class="py-2.5 px-4 text-zinc-600">${event.tactic}</td>
         <td class="py-2.5 px-4 text-right font-semibold">${event.ai_anomaly_score}</td>
       `;
       tbody.prepend(tr);
